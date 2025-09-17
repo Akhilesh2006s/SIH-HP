@@ -3,6 +3,7 @@
     "name": "Smart Travel Diary",
     "slug": "smart-travel-diary",
     "version": "1.0.0",
+    "main": "index.js",
     "orientation": "portrait",
     "icon": "./smart-travel-diary/assets/icon.png",
     "userInterfaceStyle": "light",
