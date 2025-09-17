@@ -1,14 +1,14 @@
-import express, { Request, Response, NextFunction } from 'express';
-import bcrypt from 'bcryptjs';
-import jwt from 'jsonwebtoken';
-import { v4 as uuidv4 } from 'uuid';
-import { body, validationResult } from 'express-validator';
-import { User } from '../models/User';
-import { ConsentRecord } from '../models/ConsentRecord';
-import { RewardPoints } from '../models/RewardPoints';
-import { createError } from '../middleware/errorHandler';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { EncryptionService } from '../services/encryption';
+const express = require('express');
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const { v4: uuidv4 } = require('uuid');
+const { body, validationResult } = require('express-validator');
+const User = require('../models/User');
+const ConsentRecord = require('../models/ConsentRecord');
+const RewardPoints = require('../models/RewardPoints');
+const { createError } = require('../middleware/errorHandler');
+const { authenticateToken } = require('../middleware/auth');
+const { EncryptionService } = require('../services/encryption');
 
 const router = express.Router();
 
@@ -26,7 +26,7 @@ const validateLogin = [
 ];
 
 // Signup endpoint
-router.post('/signup', validateSignup, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/signup', validateSignup, async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -87,13 +87,13 @@ router.post('/signup', validateSignup, async (req: Request, res: Response, next:
         email_hash: user.email,
         pseudonymized_id: user.pseudonymized_id
       },
-      process.env.JWT_SECRET!,
+      process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
     );
 
     const refreshToken = jwt.sign(
       { userId: user._id.toString() },
-      process.env.JWT_REFRESH_SECRET!,
+      process.env.JWT_REFRESH_SECRET,
       { expiresIn: '7d' }
     );
 
@@ -119,7 +119,7 @@ router.post('/signup', validateSignup, async (req: Request, res: Response, next:
 });
 
 // Login endpoint
-router.post('/login', validateLogin, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/login', validateLogin, async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -147,13 +147,13 @@ router.post('/login', validateLogin, async (req: Request, res: Response, next: N
         email_hash: user.email,
         pseudonymized_id: user.pseudonymized_id
       },
-      process.env.JWT_SECRET!,
+      process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
     );
 
     const refreshToken = jwt.sign(
       { userId: user._id.toString() },
-      process.env.JWT_REFRESH_SECRET!,
+      process.env.JWT_REFRESH_SECRET,
       { expiresIn: '7d' }
     );
 
@@ -179,7 +179,7 @@ router.post('/login', validateLogin, async (req: Request, res: Response, next: N
 });
 
 // Refresh token endpoint
-router.post('/refresh', async (req: Request, res: Response, next: NextFunction) => {
+router.post('/refresh', async (req, res, next) => {
   try {
     const { refresh_token } = req.body;
 
@@ -188,10 +188,10 @@ router.post('/refresh', async (req: Request, res: Response, next: NextFunction) 
     }
 
     // Verify refresh token
-    const decoded = jwt.verify(refresh_token, process.env.JWT_REFRESH_SECRET!) as any;
+    const decoded = jwt.verify(refresh_token, process.env.JWT_REFRESH_SECRET);
     
     // Find user
-    const user = await User.findById(decoded.user_id);
+    const user = await User.findById(decoded.userId);
     if (!user) {
       return next(createError('User not found', 404, 'USER_NOT_FOUND'));
     }
@@ -203,7 +203,7 @@ router.post('/refresh', async (req: Request, res: Response, next: NextFunction) 
         email_hash: user.email,
         pseudonymized_id: user.pseudonymized_id
       },
-      process.env.JWT_SECRET!,
+      process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN || '1h' }
     );
 
@@ -223,7 +223,7 @@ router.post('/refresh', async (req: Request, res: Response, next: NextFunction) 
 });
 
 // Get current user profile
-router.get('/profile', authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.get('/profile', authenticateToken, async (req, res, next) => {
   try {
     const userId = req.user?.user_id;
     if (!userId) {
@@ -275,7 +275,7 @@ router.get('/profile', authenticateToken, async (req: AuthRequest, res: Response
 router.put('/profile', authenticateToken, [
   body('email').optional().isEmail().normalizeEmail(),
   body('privacy_settings').optional().isObject()
-], async (req: AuthRequest, res: Response, next: NextFunction) => {
+], async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -337,7 +337,7 @@ router.put('/profile', authenticateToken, [
 });
 
 // Logout endpoint (client-side token removal)
-router.post('/logout', authenticateToken, async (req: AuthRequest, res: Response, next: NextFunction) => {
+router.post('/logout', authenticateToken, async (req, res, next) => {
   try {
     // In a more sophisticated implementation, you might want to blacklist the token
     // For now, we'll just return success and let the client remove the token
@@ -350,4 +350,5 @@ router.post('/logout', authenticateToken, async (req: AuthRequest, res: Response
   }
 });
 
-export default router;
+module.exports = router;
+

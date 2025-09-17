@@ -1,27 +1,27 @@
-import express from 'express';
-import cors from 'cors';
-import helmet from 'helmet';
-import morgan from 'morgan';
-import compression from 'compression';
-import rateLimit from 'express-rate-limit';
-import dotenv from 'dotenv';
-import path from 'path';
+const express = require('express');
+const cors = require('cors');
+const helmet = require('helmet');
+const morgan = require('morgan');
+const compression = require('compression');
+const rateLimit = require('express-rate-limit');
+const dotenv = require('dotenv');
+const path = require('path');
 
 // Import routes
-import authRoutes from './routes/auth';
-import tripRoutes from './routes/trips';
-import analyticsRoutes from './routes/analytics';
-import adminRoutes from './routes/admin';
-import dataRoutes from './routes/data';
-import rewardsRoutes from './routes/rewards';
+const authRoutes = require('./routes/auth');
+const tripRoutes = require('./routes/trips');
+const analyticsRoutes = require('./routes/analytics');
+const adminRoutes = require('./routes/admin');
+const dataRoutes = require('./routes/data');
+const rewardsRoutes = require('./routes/rewards');
 
 // Import middleware
-import { errorHandler } from './middleware/errorHandler';
-import { notFound } from './middleware/notFound';
-import { requestLogger } from './middleware/requestLogger';
+const { errorHandler } = require('./middleware/errorHandler');
+const { notFound } = require('./middleware/notFound');
+const { requestLogger } = require('./middleware/requestLogger');
 
 // Import database service
-import { initializeDatabase, checkDatabaseHealth, closeDatabase } from './services/database';
+const { initializeDatabase, checkDatabaseHealth, closeDatabase } = require('./services/database');
 
 // Load environment variables
 dotenv.config();
@@ -137,3 +137,4 @@ process.on('unhandledRejection', (reason, promise) => {
 
 // Start the server
 startServer();
+

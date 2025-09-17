@@ -2,11 +2,10 @@
   "name": "smart-travel-diary-backend",
   "version": "1.0.0",
   "description": "Backend API for Smart Travel Diary - Privacy-first trip tracking",
-  "main": "dist/index.js",
+  "main": "src/index.js",
   "scripts": {
-    "start": "node dist/index.js",
-    "dev": "nodemon src/index.ts",
-    "build": "tsc",
+    "start": "node src/index.js",
+    "dev": "nodemon src/index.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "seed": "node scripts/seed.js",
     "analytics:od-matrix": "node scripts/analytics/od-matrix.js",
@@ -40,17 +39,6 @@
     "compression": "^1.7.4"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2",
-    "@types/node": "^20.10.5",
-    "typescript": "^5.3.3",
-    "ts-node": "^10.9.2",
-    "@types/express": "^4.17.21",
-    "@types/cors": "^2.8.17",
-    "@types/morgan": "^1.9.9",
-    "@types/bcryptjs": "^2.4.6",
-    "@types/jsonwebtoken": "^9.0.5",
-    "@types/crypto-js": "^4.2.1",
-    "@types/uuid": "^9.0.7",
-    "@types/compression": "^1.7.5"
+    "nodemon": "^3.0.2"
   }
 }

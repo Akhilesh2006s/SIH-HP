@@ -300,3 +300,5 @@ mongosh smart-travel-diary --eval "db.trips.getIndexes()"
 ---
 
 **Ready to start?** Run `npm run setup` to get started with MongoDB! 🚀
+
+

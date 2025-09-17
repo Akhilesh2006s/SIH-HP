@@ -1,64 +1,6 @@
-import mongoose, { Document, Schema } from 'mongoose';
+const mongoose = require('mongoose');
 
-export interface ILocation {
-  lat: number;
-  lon: number;
-  place_name?: string;
-  accuracy?: number;
-  timestamp?: number;
-  speed?: number;
-  heading?: number;
-}
-
-export interface ITravelMode {
-  detected: string;
-  user_confirmed?: string;
-  confidence: number;
-}
-
-export interface IAccompanyingBasic {
-  relation: string;
-  adult_count: number;
-  child_count: number;
-}
-
-export interface ISensorSummary {
-  average_speed: number;
-  variance_accel: number;
-  gps_points_count: number;
-  max_speed: number;
-  min_speed: number;
-  total_acceleration: number;
-}
-
-export interface ITrip extends Document {
-  _id: string;
-  trip_id: string;
-  user_id: string;
-  trip_number: number;
-  chain_id: string;
-  origin: ILocation;
-  destination: ILocation;
-  start_time: Date;
-  end_time: Date;
-  duration_seconds: number;
-  distance_meters: number;
-  travel_mode: ITravelMode;
-  trip_purpose: string;
-  num_accompanying: number;
-  accompanying_basic: IAccompanyingBasic[];
-  notes?: string;
-  sensor_summary: ISensorSummary;
-  recorded_offline: boolean;
-  synced: boolean;
-  is_private: boolean;
-  plausibility_score: number;
-  anonymized_at?: Date;
-  created_at: Date;
-  updated_at: Date;
-}
-
-const LocationSchema = new Schema<ILocation>({
+const LocationSchema = new mongoose.Schema({
   lat: { type: Number, required: true },
   lon: { type: Number, required: true },
   place_name: { type: String },
@@ -68,19 +10,19 @@ const LocationSchema = new Schema<ILocation>({
   heading: { type: Number }
 }, { _id: false });
 
-const TravelModeSchema = new Schema<ITravelMode>({
+const TravelModeSchema = new mongoose.Schema({
   detected: { type: String, required: true },
   user_confirmed: { type: String },
   confidence: { type: Number, required: true, min: 0, max: 1 }
 }, { _id: false });
 
-const AccompanyingBasicSchema = new Schema<IAccompanyingBasic>({
+const AccompanyingBasicSchema = new mongoose.Schema({
   relation: { type: String, required: true },
   adult_count: { type: Number, required: true, min: 0 },
   child_count: { type: Number, required: true, min: 0 }
 }, { _id: false });
 
-const SensorSummarySchema = new Schema<ISensorSummary>({
+const SensorSummarySchema = new mongoose.Schema({
   average_speed: { type: Number, required: true },
   variance_accel: { type: Number, required: true },
   gps_points_count: { type: Number, required: true },
@@ -89,7 +31,7 @@ const SensorSummarySchema = new Schema<ISensorSummary>({
   total_acceleration: { type: Number, required: true }
 }, { _id: false });
 
-const TripSchema = new Schema<ITrip>({
+const TripSchema = new mongoose.Schema({
   trip_id: {
     type: String,
     required: true,
@@ -192,4 +134,5 @@ TripSchema.index({ 'destination.lat': 1, 'destination.lon': 1 });
 TripSchema.index({ travel_mode: 1 });
 TripSchema.index({ synced: 1, anonymized_at: 1 });
 
-export const Trip = mongoose.model<ITrip>('Trip', TripSchema);
+module.exports = mongoose.model('Trip', TripSchema);
+

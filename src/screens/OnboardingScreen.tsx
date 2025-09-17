@@ -16,6 +16,7 @@ import { EncryptionService } from '../utils/encryption';
 import { apiService } from '../services/ApiService';
 import { databaseService } from '../services/DatabaseService';
 import { User, SignupData, LoginCredentials } from '../types';
+import { SignupRequest } from '../types/Api';
 import { APP_CONFIG } from '../constants/Config';
 
 interface OnboardingScreenProps {
@@ -59,7 +60,7 @@ export default function OnboardingScreen({ onAuthentication }: OnboardingScreenP
       const hashedPassword = await EncryptionService.hashPassword(password);
 
       // Create signup data
-      const signupData: SignupData = {
+      const signupData: SignupRequest = {
         email,
         password: hashedPassword,
         consent_version: APP_CONFIG.CONSENT_VERSION,
@@ -321,3 +322,5 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
 });
+
+

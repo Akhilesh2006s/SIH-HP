@@ -31,8 +31,8 @@ export class SyncService {
   
   private syncListeners: Array<(status: SyncStatus) => void> = [];
   private progressListeners: Array<(progress: SyncProgress) => void> = [];
-  private syncInterval: NodeJS.Timeout | null = null;
-  private retryTimeout: NodeJS.Timeout | null = null;
+  private syncInterval: ReturnType<typeof setInterval> | null = null;
+  private retryTimeout: ReturnType<typeof setTimeout> | null = null;
   
   constructor() {
     this.initializeSync();
@@ -226,7 +226,7 @@ export class SyncService {
     }
   }
   
-  private async syncConsentRecords(): Promise<void> {
+  async syncConsentRecords(): Promise<void> {
     const userId = await this.getCurrentUserId();
     if (!userId) return;
     
@@ -411,3 +411,5 @@ export class SyncService {
 
 // Singleton instance
 export const syncService = new SyncService();
+
+

@@ -1,22 +1,6 @@
-import mongoose, { Document, Schema } from 'mongoose';
+const mongoose = require('mongoose');
 
-export interface IAnonymizedData extends Document {
-  _id: string;
-  pseudonymized_user_id: string;
-  origin_zone: string;
-  destination_zone: string;
-  start_time_bucket: string;
-  end_time_bucket: string;
-  duration_bucket: string;
-  distance_bucket: string;
-  travel_mode: string;
-  trip_purpose: string;
-  num_accompanying_bucket: string;
-  created_at: Date;
-  updated_at: Date;
-}
-
-const AnonymizedDataSchema = new Schema<IAnonymizedData>({
+const AnonymizedDataSchema = new mongoose.Schema({
   pseudonymized_user_id: {
     type: String,
     required: true,
@@ -72,4 +56,5 @@ AnonymizedDataSchema.index({ start_time_bucket: 1 });
 AnonymizedDataSchema.index({ travel_mode: 1 });
 AnonymizedDataSchema.index({ created_at: 1 });
 
-export const AnonymizedData = mongoose.model<IAnonymizedData>('AnonymizedData', AnonymizedDataSchema);
+module.exports = mongoose.model('AnonymizedData', AnonymizedDataSchema);
+

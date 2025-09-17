@@ -1,6 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
-
-export function notFound(req: Request, res: Response, next: NextFunction): void {
+function notFound(req, res, next) {
   res.status(404).json({
     success: false,
     error: {
@@ -10,3 +8,8 @@ export function notFound(req: Request, res: Response, next: NextFunction): void 
     }
   });
 }
+
+module.exports = {
+  notFound
+};
+

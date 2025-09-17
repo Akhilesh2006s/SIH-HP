@@ -100,3 +100,5 @@ export const getStatusColor = (status: 'active' | 'inactive' | 'warning' | 'erro
       return Colors.textSecondary;
   }
 };
+
+

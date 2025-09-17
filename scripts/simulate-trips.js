@@ -276,3 +276,5 @@ if (require.main === module) {
 }
 
 module.exports = { generateTrip, generateTripChain, CONFIG };
+
+

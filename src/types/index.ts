@@ -2,3 +2,8 @@
 export * from './Trip';
 export * from './User';
 export * from './Api';
+
+// Export service types
+export { TripDetectionState } from '../services/TripDetectionService';
+
+

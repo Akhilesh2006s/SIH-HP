@@ -1,15 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { createError } from './errorHandler';
+const jwt = require('jsonwebtoken');
+const { createError } = require('./errorHandler');
 
-export interface AuthRequest extends Request {
-  user?: {
-    user_id: string;
-    email_hash: string;
-  };
-}
-
-export function authenticateToken(req: AuthRequest, res: Response, next: NextFunction): void {
+function authenticateToken(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1]; // Bearer TOKEN
 
@@ -23,7 +15,7 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
       throw new Error('JWT_SECRET not configured');
     }
 
-    const decoded = jwt.verify(token, secret) as any;
+    const decoded = jwt.verify(token, secret);
     req.user = {
       user_id: decoded.user_id,
       email_hash: decoded.email_hash
@@ -41,7 +33,7 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
   }
 }
 
-export function optionalAuth(req: AuthRequest, res: Response, next: NextFunction): void {
+function optionalAuth(req, res, next) {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
@@ -55,7 +47,7 @@ export function optionalAuth(req: AuthRequest, res: Response, next: NextFunction
       return next(); // Continue without authentication
     }
 
-    const decoded = jwt.verify(token, secret) as any;
+    const decoded = jwt.verify(token, secret);
     req.user = {
       user_id: decoded.user_id,
       email_hash: decoded.email_hash
@@ -68,7 +60,7 @@ export function optionalAuth(req: AuthRequest, res: Response, next: NextFunction
   }
 }
 
-export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction): void {
+function requireAdmin(req, res, next) {
   // This would check if the user has admin privileges
   // For now, we'll implement a simple check
   const isAdmin = req.headers['x-admin-key'] === process.env.ADMIN_KEY;
@@ -79,3 +71,10 @@ export function requireAdmin(req: AuthRequest, res: Response, next: NextFunction
   
   next();
 }
+
+module.exports = {
+  authenticateToken,
+  optionalAuth,
+  requireAdmin
+};
+

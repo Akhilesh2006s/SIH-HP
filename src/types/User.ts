@@ -92,3 +92,5 @@ export interface TripChainPattern {
   average_distance: number;
   created_at: string;
 }
+
+

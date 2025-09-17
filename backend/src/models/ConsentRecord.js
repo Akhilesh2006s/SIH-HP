@@ -1,18 +1,6 @@
-import mongoose, { Document, Schema } from 'mongoose';
+const mongoose = require('mongoose');
 
-export interface IConsentRecord extends Document {
-  _id: string;
-  user_id: string;
-  consent_version: string;
-  background_tracking_consent: boolean;
-  data_sharing_consent: boolean;
-  analytics_consent: boolean;
-  consent_timestamp: Date;
-  created_at: Date;
-  updated_at: Date;
-}
-
-const ConsentRecordSchema = new Schema<IConsentRecord>({
+const ConsentRecordSchema = new mongoose.Schema({
   user_id: {
     type: String,
     required: true,
@@ -45,4 +33,5 @@ const ConsentRecordSchema = new Schema<IConsentRecord>({
 // Index for user consent queries
 ConsentRecordSchema.index({ user_id: 1, consent_timestamp: -1 });
 
-export const ConsentRecord = mongoose.model<IConsentRecord>('ConsentRecord', ConsentRecordSchema);
+module.exports = mongoose.model('ConsentRecord', ConsentRecordSchema);
+

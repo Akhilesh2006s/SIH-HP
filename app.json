@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "Smart Travel Diary",
+    "slug": "smart-travel-diary",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./smart-travel-diary/assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./smart-travel-diary/assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./smart-travel-diary/assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      }
+    },
+    "web": {
+      "favicon": "./smart-travel-diary/assets/favicon.png"
+    },
+    "plugins": [
+      "expo-location",
+      "expo-background-fetch",
+      "expo-task-manager"
+    ]
+  }
+}
+

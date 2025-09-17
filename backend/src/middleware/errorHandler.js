@@ -1,17 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
-
-export interface ApiError extends Error {
-  statusCode?: number;
-  code?: string;
-  details?: any;
-}
-
-export function errorHandler(
-  error: ApiError,
-  req: Request,
-  res: Response,
-  next: NextFunction
-): void {
+function errorHandler(error, req, res, next) {
   // Log error
   console.error('API Error:', {
     message: error.message,
@@ -66,15 +53,16 @@ export function errorHandler(
   });
 }
 
-export function createError(
-  message: string,
-  statusCode: number = 500,
-  code: string = 'INTERNAL_ERROR',
-  details?: any
-): ApiError {
-  const error: ApiError = new Error(message);
+function createError(message, statusCode = 500, code = 'INTERNAL_ERROR', details) {
+  const error = new Error(message);
   error.statusCode = statusCode;
   error.code = code;
   error.details = details;
   return error;
 }
+
+module.exports = {
+  errorHandler,
+  createError
+};
+

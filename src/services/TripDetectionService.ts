@@ -24,7 +24,7 @@ interface SensorData {
   timestamp: number;
 }
 
-interface TripDetectionState {
+export interface TripDetectionState {
   isTracking: boolean;
   currentTrip: Partial<Trip> | null;
   locationPoints: LocationPoint[];
@@ -61,7 +61,7 @@ export class TripDetectionService {
   
   private initializeTasks(): void {
     // Background location task
-    TaskManager.defineTask(BACKGROUND_LOCATION_TASK, ({ data, error }) => {
+    TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
       if (error) {
         console.error('Background location error:', error);
         return;
@@ -76,7 +76,7 @@ export class TripDetectionService {
     });
     
     // Background sensor task
-    TaskManager.defineTask(BACKGROUND_SENSOR_TASK, ({ data, error }) => {
+    TaskManager.defineTask(BACKGROUND_SENSOR_TASK, async ({ data, error }) => {
       if (error) {
         console.error('Background sensor error:', error);
         return;
@@ -600,3 +600,5 @@ export class TripDetectionService {
 
 // Singleton instance
 export const tripDetectionService = new TripDetectionService();
+
+

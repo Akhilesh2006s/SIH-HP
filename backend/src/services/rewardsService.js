@@ -1,60 +1,39 @@
-import { v4 as uuidv4 } from 'uuid';
-import { knex } from './database';
-import { Trip } from '../../types/Trip';
+const { v4: uuidv4 } = require('uuid');
+const { mongoose } = require('./database');
+const Trip = require('../models/Trip');
+const RewardTransaction = require('../models/RewardTransaction');
+const RewardPoints = require('../models/RewardPoints');
 
-interface RewardTransaction {
-  id: string;
-  user_id: string;
-  points_change: number;
-  transaction_type: 'trip_completed' | 'trip_verified' | 'fraud_penalty' | 'bonus' | 'redemption';
-  description: string;
-  trip_id?: string;
-  timestamp: Date;
-}
-
-interface FraudDetectionResult {
-  isFraud: boolean;
-  confidence: number;
-  reasons: string[];
-  penalty: number;
-}
-
-interface RewardCalculation {
-  basePoints: number;
-  bonusPoints: number;
-  penaltyPoints: number;
-  totalPoints: number;
-  reasons: string[];
-}
-
-export class RewardsService {
-  private readonly POINTS_PER_KM = 1;
-  private readonly POINTS_PER_MINUTE = 0.1;
-  private readonly BONUS_MULTIPLIERS = {
-    walking: 1.5,
-    cycling: 1.3,
-    public_transport: 1.2,
-    private_vehicle: 1.0
-  };
-  private readonly FRAUD_PENALTIES = {
-    low: 10,
-    medium: 25,
-    high: 50,
-    severe: 100
-  };
-  private readonly MIN_TRIP_DISTANCE = 100; // meters
-  private readonly MIN_TRIP_DURATION = 60; // seconds
-  private readonly MAX_SPEED_THRESHOLDS = {
-    walking: 2.0, // m/s
-    cycling: 6.0,
-    public_transport: 15.0,
-    private_vehicle: 30.0
-  };
+class RewardsService {
+  constructor() {
+    this.POINTS_PER_KM = 1;
+    this.POINTS_PER_MINUTE = 0.1;
+    this.BONUS_MULTIPLIERS = {
+      walking: 1.5,
+      cycling: 1.3,
+      public_transport: 1.2,
+      private_vehicle: 1.0
+    };
+    this.FRAUD_PENALTIES = {
+      low: 10,
+      medium: 25,
+      high: 50,
+      severe: 100
+    };
+    this.MIN_TRIP_DISTANCE = 100; // meters
+    this.MIN_TRIP_DURATION = 60; // seconds
+    this.MAX_SPEED_THRESHOLDS = {
+      walking: 2.0, // m/s
+      cycling: 6.0,
+      public_transport: 15.0,
+      private_vehicle: 30.0
+    };
+  }
 
   /**
    * Calculate rewards for a completed trip
    */
-  async calculateTripRewards(trip: Trip): Promise<RewardCalculation> {
+  async calculateTripRewards(trip) {
     // First, check for fraud
     const fraudResult = await this.detectFraud(trip);
     
@@ -88,12 +67,11 @@ export class RewardsService {
   /**
    * Award points to user for a trip
    */
-  async awardTripPoints(userId: string, trip: Trip): Promise<RewardTransaction> {
+  async awardTripPoints(userId, trip) {
     const rewardCalculation = await this.calculateTripRewards(trip);
     
     // Create reward transaction
-    const transaction: RewardTransaction = {
-      id: uuidv4(),
+    const transaction = {
       user_id: userId,
       points_change: rewardCalculation.totalPoints,
       transaction_type: rewardCalculation.totalPoints >= 0 ? 'trip_completed' : 'fraud_penalty',
@@ -103,7 +81,7 @@ export class RewardsService {
     };
 
     // Save transaction
-    await knex('reward_transactions').insert(transaction);
+    await RewardTransaction.create(transaction);
 
     // Update user's point balance
     await this.updateUserPoints(userId, rewardCalculation.totalPoints);
@@ -114,8 +92,8 @@ export class RewardsService {
   /**
    * Detect fraudulent trips
    */
-  async detectFraud(trip: Trip): Promise<FraudDetectionResult> {
-    const reasons: string[] = [];
+  async detectFraud(trip) {
+    const reasons = [];
     let confidence = 0;
     let penalty = 0;
 
@@ -173,36 +151,31 @@ export class RewardsService {
   /**
    * Get user's current point balance
    */
-  async getUserPoints(userId: string): Promise<number> {
-    const result = await knex('reward_points')
-      .where('user_id', userId)
-      .first();
-    
+  async getUserPoints(userId) {
+    const result = await RewardPoints.findOne({ user_id: userId });
     return result ? result.points_balance : 0;
   }
 
   /**
    * Get user's reward history
    */
-  async getUserRewardHistory(userId: string, limit: number = 50): Promise<RewardTransaction[]> {
-    return await knex('reward_transactions')
-      .where('user_id', userId)
-      .orderBy('timestamp', 'desc')
+  async getUserRewardHistory(userId, limit = 50) {
+    return await RewardTransaction.find({ user_id: userId })
+      .sort({ timestamp: -1 })
       .limit(limit);
   }
 
   /**
    * Redeem points for rewards
    */
-  async redeemPoints(userId: string, points: number, description: string): Promise<RewardTransaction> {
+  async redeemPoints(userId, points, description) {
     const currentPoints = await this.getUserPoints(userId);
     
     if (currentPoints < points) {
       throw new Error('Insufficient points for redemption');
     }
 
-    const transaction: RewardTransaction = {
-      id: uuidv4(),
+    const transaction = {
       user_id: userId,
       points_change: -points,
       transaction_type: 'redemption',
@@ -210,7 +183,7 @@ export class RewardsService {
       timestamp: new Date()
     };
 
-    await knex('reward_transactions').insert(transaction);
+    await RewardTransaction.create(transaction);
     await this.updateUserPoints(userId, -points);
 
     return transaction;
@@ -219,14 +192,25 @@ export class RewardsService {
   /**
    * Get leaderboard (anonymized)
    */
-  async getLeaderboard(limit: number = 10): Promise<Array<{ rank: number; points: number; trip_count: number }>> {
-    const results = await knex('reward_points')
-      .select([
-        'points_balance',
-        knex.raw('(SELECT COUNT(*) FROM trips WHERE user_id = reward_points.user_id) as trip_count')
-      ])
-      .orderBy('points_balance', 'desc')
-      .limit(limit);
+  async getLeaderboard(limit = 10) {
+    const results = await RewardPoints.aggregate([
+      {
+        $lookup: {
+          from: 'trips',
+          localField: 'user_id',
+          foreignField: 'user_id',
+          as: 'trips'
+        }
+      },
+      {
+        $project: {
+          points_balance: 1,
+          trip_count: { $size: '$trips' }
+        }
+      },
+      { $sort: { points_balance: -1 } },
+      { $limit: limit }
+    ]);
 
     return results.map((result, index) => ({
       rank: index + 1,
@@ -238,7 +222,7 @@ export class RewardsService {
   /**
    * Calculate base points for a trip
    */
-  private calculateBasePoints(trip: Trip): number {
+  calculateBasePoints(trip) {
     const distancePoints = Math.floor(trip.distance_meters / 1000) * this.POINTS_PER_KM;
     const durationPoints = Math.floor(trip.duration_seconds / 60) * this.POINTS_PER_MINUTE;
     
@@ -248,7 +232,7 @@ export class RewardsService {
   /**
    * Calculate bonus points for a trip
    */
-  private calculateBonusPoints(trip: Trip): number {
+  calculateBonusPoints(trip) {
     const basePoints = this.calculateBasePoints(trip);
     const mode = trip.travel_mode.detected;
     const multiplier = this.BONUS_MULTIPLIERS[mode] || 1.0;
@@ -259,8 +243,8 @@ export class RewardsService {
   /**
    * Get reasons for reward calculation
    */
-  private getRewardReasons(trip: Trip, basePoints: number, bonusPoints: number): string[] {
-    const reasons: string[] = [];
+  getRewardReasons(trip, basePoints, bonusPoints) {
+    const reasons = [];
     
     reasons.push(`Base points: ${basePoints} (${Math.floor(trip.distance_meters / 1000)}km + ${Math.floor(trip.duration_seconds / 60)}min)`);
     
@@ -280,7 +264,7 @@ export class RewardsService {
   /**
    * Check for speed-based fraud
    */
-  private checkSpeedFraud(trip: Trip): { isFraud: boolean; reason: string; confidence: number; penalty: number } {
+  checkSpeedFraud(trip) {
     const avgSpeed = trip.distance_meters / trip.duration_seconds; // m/s
     const mode = trip.travel_mode.detected;
     const maxSpeed = this.MAX_SPEED_THRESHOLDS[mode] || 30.0;
@@ -309,7 +293,7 @@ export class RewardsService {
   /**
    * Check for distance-based fraud
    */
-  private checkDistanceFraud(trip: Trip): { isFraud: boolean; reason: string; confidence: number; penalty: number } {
+  checkDistanceFraud(trip) {
     if (trip.distance_meters < this.MIN_TRIP_DISTANCE) {
       return {
         isFraud: true,
@@ -334,31 +318,35 @@ export class RewardsService {
   /**
    * Check for duplicate trips
    */
-  private async checkDuplicateTrips(trip: Trip): Promise<{ isFraud: boolean; reason: string; confidence: number; penalty: number }> {
+  async checkDuplicateTrips(trip) {
     const timeWindow = 5 * 60 * 1000; // 5 minutes
     const startTime = new Date(trip.start_time).getTime();
     const endTime = new Date(trip.end_time).getTime();
     
-    const duplicates = await knex('trips')
-      .where('user_id', trip.user_id)
-      .where('id', '!=', trip.trip_id)
-      .where(function() {
-        this.whereBetween('start_time', [
-          new Date(startTime - timeWindow).toISOString(),
-          new Date(startTime + timeWindow).toISOString()
-        ]).orWhereBetween('end_time', [
-          new Date(endTime - timeWindow).toISOString(),
-          new Date(endTime + timeWindow).toISOString()
-        ]);
-      })
-      .whereRaw('ABS(distance_meters - ?) < 50', [trip.distance_meters])
-      .count('* as count')
-      .first();
+    const duplicates = await Trip.countDocuments({
+      user_id: trip.user_id,
+      _id: { $ne: trip._id },
+      $or: [
+        {
+          start_time: {
+            $gte: new Date(startTime - timeWindow),
+            $lte: new Date(startTime + timeWindow)
+          }
+        },
+        {
+          end_time: {
+            $gte: new Date(endTime - timeWindow),
+            $lte: new Date(endTime + timeWindow)
+          }
+        }
+      ],
+      distance_meters: { $gte: trip.distance_meters - 50, $lte: trip.distance_meters + 50 }
+    });
     
-    if (duplicates && parseInt(duplicates.count) > 0) {
+    if (duplicates > 0) {
       return {
         isFraud: true,
-        reason: `Duplicate trip detected: ${duplicates.count} similar trips found`,
+        reason: `Duplicate trip detected: ${duplicates} similar trips found`,
         confidence: 0.9,
         penalty: this.FRAUD_PENALTIES.severe
       };
@@ -370,20 +358,19 @@ export class RewardsService {
   /**
    * Check for pattern-based fraud
    */
-  private async checkPatternFraud(trip: Trip): Promise<{ isFraud: boolean; reason: string; confidence: number; penalty: number }> {
+  async checkPatternFraud(trip) {
     // Check for too many trips in a short time
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
     
-    const recentTrips = await knex('trips')
-      .where('user_id', trip.user_id)
-      .where('start_time', '>=', oneHourAgo)
-      .count('* as count')
-      .first();
+    const recentTrips = await Trip.countDocuments({
+      user_id: trip.user_id,
+      start_time: { $gte: oneHourAgo }
+    });
     
-    if (recentTrips && parseInt(recentTrips.count) > 10) {
+    if (recentTrips > 10) {
       return {
         isFraud: true,
-        reason: `Too many trips: ${recentTrips.count} trips in the last hour`,
+        reason: `Too many trips: ${recentTrips} trips in the last hour`,
         confidence: 0.7,
         penalty: this.FRAUD_PENALTIES.high
       };
@@ -391,16 +378,18 @@ export class RewardsService {
     
     // Check for unrealistic daily patterns
     const today = new Date().toDateString();
-    const todayTrips = await knex('trips')
-      .where('user_id', trip.user_id)
-      .whereRaw('DATE(start_time) = ?', [today])
-      .count('* as count')
-      .first();
+    const todayTrips = await Trip.countDocuments({
+      user_id: trip.user_id,
+      start_time: {
+        $gte: new Date(today),
+        $lt: new Date(new Date(today).getTime() + 24 * 60 * 60 * 1000)
+      }
+    });
     
-    if (todayTrips && parseInt(todayTrips.count) > 50) {
+    if (todayTrips > 50) {
       return {
         isFraud: true,
-        reason: `Unrealistic daily pattern: ${todayTrips.count} trips today`,
+        reason: `Unrealistic daily pattern: ${todayTrips} trips today`,
         confidence: 0.8,
         penalty: this.FRAUD_PENALTIES.severe
       };
@@ -412,7 +401,7 @@ export class RewardsService {
   /**
    * Check for sensor data fraud
    */
-  private checkSensorFraud(trip: Trip): { isFraud: boolean; reason: string; confidence: number; penalty: number } {
+  checkSensorFraud(trip) {
     if (!trip.sensor_summary) {
       return { isFraud: false, reason: '', confidence: 0, penalty: 0 };
     }
@@ -445,7 +434,7 @@ export class RewardsService {
   /**
    * Get penalty amount based on confidence
    */
-  private getPenaltyAmount(confidence: number): number {
+  getPenaltyAmount(confidence) {
     if (confidence >= 0.9) return this.FRAUD_PENALTIES.severe;
     if (confidence >= 0.7) return this.FRAUD_PENALTIES.high;
     if (confidence >= 0.5) return this.FRAUD_PENALTIES.medium;
@@ -455,33 +444,29 @@ export class RewardsService {
   /**
    * Update user's point balance
    */
-  private async updateUserPoints(userId: string, pointsChange: number): Promise<void> {
-    await knex('reward_points')
-      .insert({
-        user_id: userId,
-        points_balance: pointsChange,
-        last_updated: new Date()
-      })
-      .onConflict('user_id')
-      .merge({
-        points_balance: knex.raw('points_balance + ?', [pointsChange]),
-        last_updated: new Date()
-      });
+  async updateUserPoints(userId, pointsChange) {
+    await RewardPoints.findOneAndUpdate(
+      { user_id: userId },
+      {
+        $inc: { points_balance: pointsChange },
+        $set: { last_updated: new Date() }
+      },
+      { upsert: true }
+    );
   }
 
   /**
    * Verify trip authenticity (manual verification)
    */
-  async verifyTrip(tripId: string, isVerified: boolean): Promise<void> {
-    const trip = await knex('trips').where('trip_id', tripId).first();
+  async verifyTrip(tripId, isVerified) {
+    const trip = await Trip.findOne({ trip_id: tripId });
     if (!trip) {
       throw new Error('Trip not found');
     }
 
     if (isVerified) {
       // Award bonus points for verification
-      const bonusTransaction: RewardTransaction = {
-        id: uuidv4(),
+      const bonusTransaction = {
         user_id: trip.user_id,
         points_change: 5,
         transaction_type: 'trip_verified',
@@ -490,7 +475,7 @@ export class RewardsService {
         timestamp: new Date()
       };
 
-      await knex('reward_transactions').insert(bonusTransaction);
+      await RewardTransaction.create(bonusTransaction);
       await this.updateUserPoints(trip.user_id, 5);
     }
   }
@@ -498,18 +483,14 @@ export class RewardsService {
   /**
    * Get fraud statistics for admin
    */
-  async getFraudStatistics(startDate?: Date, endDate?: Date): Promise<any> {
-    let query = knex('reward_transactions')
-      .where('transaction_type', 'fraud_penalty');
-
-    if (startDate) {
-      query = query.where('timestamp', '>=', startDate);
-    }
+  async getFraudStatistics(startDate, endDate) {
+    const matchStage = { transaction_type: 'fraud_penalty' };
+    if (startDate) matchStage.timestamp = { $gte: startDate };
     if (endDate) {
-      query = query.where('timestamp', '<=', endDate);
+      matchStage.timestamp = { ...matchStage.timestamp, $lte: endDate };
     }
 
-    const fraudTransactions = await query;
+    const fraudTransactions = await RewardTransaction.find(matchStage);
     
     const totalFraudPenalties = fraudTransactions.reduce((sum, tx) => sum + Math.abs(tx.points_change), 0);
     const fraudCount = fraudTransactions.length;
@@ -523,4 +504,5 @@ export class RewardsService {
   }
 }
 
-export const rewardsService = new RewardsService();
+module.exports = new RewardsService();
+

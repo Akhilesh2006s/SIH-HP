@@ -1,9 +1,10 @@
-import express from 'express';
-import { body, validationResult, query } from 'express-validator';
-import { Trip } from '../models/Trip';
-import { createError } from '../middleware/errorHandler';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
-import { EncryptionService } from '../services/encryption';
+const express = require('express');
+const { body, validationResult, query } = require('express-validator');
+const Trip = require('../models/Trip');
+const User = require('../models/User');
+const { createError } = require('../middleware/errorHandler');
+const { authenticateToken } = require('../middleware/auth');
+const { EncryptionService } = require('../services/encryption');
 
 const router = express.Router();
 
@@ -22,7 +23,7 @@ const validateTripCorrection = [
 ];
 
 // Bulk sync trips endpoint
-router.post('/bulk', authenticateToken, validateTripSync, async (req: AuthRequest, res, next) => {
+router.post('/bulk', authenticateToken, validateTripSync, async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -30,20 +31,17 @@ router.post('/bulk', authenticateToken, validateTripSync, async (req: AuthReques
     }
 
     const { trips, sync_timestamp } = req.body;
-    const userId = req.user!.user_id;
+    const userId = req.user.user_id;
 
     // Get user's encryption key
-    const user = await db('users')
-      .where('user_id', userId)
-      .select('encryption_key')
-      .first();
+    const user = await User.findById(userId).select('salt');
 
     if (!user) {
       return next(createError('User not found', 404, 'USER_NOT_FOUND'));
     }
 
-    const syncedTrips: string[] = [];
-    const failedTrips: Array<{ trip_id: string; error: string }> = [];
+    const syncedTrips = [];
+    const failedTrips = [];
 
     for (const tripData of trips) {
       try {
@@ -51,7 +49,7 @@ router.post('/bulk', authenticateToken, validateTripSync, async (req: AuthReques
         if (!EncryptionService.verifySignature(
           tripData.encrypted_data,
           tripData.signature,
-          user.encryption_key
+          user.salt
         )) {
           failedTrips.push({
             trip_id: tripData.trip_id,
@@ -63,7 +61,7 @@ router.post('/bulk', authenticateToken, validateTripSync, async (req: AuthReques
         // Decrypt trip data
         const trip = EncryptionService.decryptTripData(
           tripData.encrypted_data,
-          user.encryption_key
+          user.salt
         );
 
         // Validate trip data
@@ -76,28 +74,25 @@ router.post('/bulk', authenticateToken, validateTripSync, async (req: AuthReques
         }
 
         // Check if trip already exists
-        const existingTrip = await db('trips')
-          .where('trip_id', trip.trip_id)
-          .first();
+        const existingTrip = await Trip.findOne({ trip_id: trip.trip_id });
 
         if (existingTrip) {
           // Update existing trip
-          await db('trips')
-            .where('trip_id', trip.trip_id)
-            .update({
+          await Trip.findOneAndUpdate(
+            { trip_id: trip.trip_id },
+            {
               ...trip,
               user_id: userId,
               synced: true,
-              updated_at: new Date().toISOString()
-            });
+              updated_at: new Date()
+            }
+          );
         } else {
           // Insert new trip
-          await db('trips').insert({
+          await Trip.create({
             ...trip,
             user_id: userId,
-            synced: true,
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
+            synced: true
           });
         }
 
@@ -128,40 +123,36 @@ router.post('/bulk', authenticateToken, validateTripSync, async (req: AuthReques
 router.get('/', authenticateToken, [
   query('limit').optional().isInt({ min: 1, max: 1000 }).withMessage('Limit must be between 1 and 1000'),
   query('offset').optional().isInt({ min: 0 }).withMessage('Offset must be non-negative'),
-], async (req: AuthRequest, res, next) => {
+], async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return next(createError('Validation failed', 400, 'VALIDATION_ERROR', errors.array()));
     }
 
-    const userId = req.user!.user_id;
-    const limit = parseInt(req.query.limit as string) || 100;
-    const offset = parseInt(req.query.offset as string) || 0;
+    const userId = req.user.user_id;
+    const limit = parseInt(req.query.limit) || 100;
+    const offset = parseInt(req.query.offset) || 0;
 
     // Get user's encryption key
-    const user = await db('users')
-      .where('user_id', userId)
-      .select('encryption_key')
-      .first();
+    const user = await User.findById(userId).select('salt');
 
     if (!user) {
       return next(createError('User not found', 404, 'USER_NOT_FOUND'));
     }
 
     // Get trips from database
-    const trips = await db('trips')
-      .where('user_id', userId)
-      .orderBy('start_time', 'desc')
+    const trips = await Trip.find({ user_id: userId })
+      .sort({ start_time: -1 })
       .limit(limit)
-      .offset(offset);
+      .skip(offset);
 
     // Decrypt trip data
     const decryptedTrips = trips.map(trip => {
       try {
         const decryptedData = EncryptionService.decryptTripData(
           trip.encrypted_data,
-          user.encryption_key
+          user.salt
         );
         return {
           ...decryptedData,
@@ -195,31 +186,25 @@ router.get('/', authenticateToken, [
 });
 
 // Confirm/correct trip endpoint
-router.post('/confirm', authenticateToken, validateTripCorrection, async (req: AuthRequest, res, next) => {
+router.post('/confirm', authenticateToken, validateTripCorrection, async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return next(createError('Validation failed', 400, 'VALIDATION_ERROR', errors.array()));
     }
 
-    const userId = req.user!.user_id;
+    const userId = req.user.user_id;
     const { trip_id, corrections } = req.body;
 
     // Check if trip exists and belongs to user
-    const trip = await db('trips')
-      .where('trip_id', trip_id)
-      .where('user_id', userId)
-      .first();
+    const trip = await Trip.findOne({ trip_id, user_id: userId });
 
     if (!trip) {
       return next(createError('Trip not found', 404, 'TRIP_NOT_FOUND'));
     }
 
     // Get user's encryption key
-    const user = await db('users')
-      .where('user_id', userId)
-      .select('encryption_key')
-      .first();
+    const user = await User.findById(userId).select('salt');
 
     if (!user) {
       return next(createError('User not found', 404, 'USER_NOT_FOUND'));
@@ -228,26 +213,27 @@ router.post('/confirm', authenticateToken, validateTripCorrection, async (req: A
     // Decrypt trip data
     const decryptedTrip = EncryptionService.decryptTripData(
       trip.encrypted_data,
-      user.encryption_key
+      user.salt
     );
 
     // Apply corrections
     const updatedTrip = {
       ...decryptedTrip,
       ...corrections,
-      updated_at: new Date().toISOString()
+      updated_at: new Date()
     };
 
     // Re-encrypt trip data
-    const encryptedData = EncryptionService.encryptTripData(updatedTrip, user.encryption_key);
+    const encryptedData = EncryptionService.encryptTripData(updatedTrip, user.salt);
 
     // Update trip in database
-    await db('trips')
-      .where('trip_id', trip_id)
-      .update({
+    await Trip.findOneAndUpdate(
+      { trip_id },
+      {
         encrypted_data: encryptedData,
-        updated_at: new Date().toISOString()
-      });
+        updated_at: new Date()
+      }
+    );
 
     res.json({
       success: true,
@@ -259,44 +245,63 @@ router.post('/confirm', authenticateToken, validateTripCorrection, async (req: A
 });
 
 // Get trip statistics endpoint
-router.get('/stats', authenticateToken, async (req: AuthRequest, res, next) => {
+router.get('/stats', authenticateToken, async (req, res, next) => {
   try {
-    const userId = req.user!.user_id;
+    const userId = req.user.user_id;
 
     // Get basic trip statistics
-    const stats = await db('trips')
-      .where('user_id', userId)
-      .select(
-        db.raw('COUNT(*) as total_trips'),
-        db.raw('SUM(duration_seconds) as total_duration'),
-        db.raw('SUM(distance_meters) as total_distance'),
-        db.raw('AVG(duration_seconds) as avg_duration'),
-        db.raw('AVG(distance_meters) as avg_distance')
-      )
-      .first();
+    const stats = await Trip.aggregate([
+      { $match: { user_id: userId } },
+      {
+        $group: {
+          _id: null,
+          total_trips: { $sum: 1 },
+          total_duration: { $sum: '$duration_seconds' },
+          total_distance: { $sum: '$distance_meters' },
+          avg_duration: { $avg: '$duration_seconds' },
+          avg_distance: { $avg: '$distance_meters' }
+        }
+      }
+    ]);
 
     // Get mode distribution
-    const modeStats = await db('trips')
-      .where('user_id', userId)
-      .select('travel_mode_detected')
-      .count('* as count')
-      .groupBy('travel_mode_detected');
+    const modeStats = await Trip.aggregate([
+      { $match: { user_id: userId } },
+      {
+        $group: {
+          _id: '$travel_mode.detected',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
 
     // Get purpose distribution
-    const purposeStats = await db('trips')
-      .where('user_id', userId)
-      .select('trip_purpose')
-      .count('* as count')
-      .groupBy('trip_purpose');
+    const purposeStats = await Trip.aggregate([
+      { $match: { user_id: userId } },
+      {
+        $group: {
+          _id: '$trip_purpose',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const result = stats[0] || {
+      total_trips: 0,
+      total_duration: 0,
+      total_distance: 0,
+      avg_duration: 0,
+      avg_distance: 0
+    };
 
     res.json({
       success: true,
       data: {
-        total_trips: stats.total_trips || 0,
-        total_duration: stats.total_duration || 0,
-        total_distance: stats.total_distance || 0,
-        avg_duration: stats.avg_duration || 0,
-        avg_distance: stats.avg_distance || 0,
+        total_trips: result.total_trips,
+        total_duration: result.total_duration,
+        total_distance: result.total_distance,
+        avg_duration: result.avg_duration,
+        avg_distance: result.avg_distance,
         mode_distribution: modeStats,
         purpose_distribution: purposeStats
       }
@@ -306,4 +311,5 @@ router.get('/stats', authenticateToken, async (req: AuthRequest, res, next) => {
   }
 });
 
-export default router;
+module.exports = router;
+

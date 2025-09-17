@@ -176,3 +176,5 @@ export const formatSyncStatus = (isOnline: boolean, isSyncing: boolean, pendingC
   if (pendingCount > 0) return `${pendingCount} pending`;
   return 'Up to date';
 };
+
+

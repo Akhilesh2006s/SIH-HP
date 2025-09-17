@@ -87,3 +87,5 @@ export const NOTIFICATION_TYPES = {
   BATTERY_LOW: 'battery_low',
   PRIVACY_REMINDER: 'privacy_reminder',
 } as const;
+
+

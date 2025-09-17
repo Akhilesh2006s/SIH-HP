@@ -1,6 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
-
-export function requestLogger(req: Request, res: Response, next: NextFunction): void {
+function requestLogger(req, res, next) {
   const start = Date.now();
   
   // Log request
@@ -8,7 +6,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   
   // Override res.end to log response
   const originalEnd = res.end;
-  res.end = function(chunk?: any, encoding?: any) {
+  res.end = function(chunk, encoding) {
     const duration = Date.now() - start;
     const statusColor = res.statusCode >= 400 ? '🔴' : res.statusCode >= 300 ? '🟡' : '🟢';
     
@@ -20,3 +18,8 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   
   next();
 }
+
+module.exports = {
+  requestLogger
+};
+

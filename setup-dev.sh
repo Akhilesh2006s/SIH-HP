@@ -98,3 +98,5 @@ echo ""
 echo "📱 Install Expo Go on your mobile device and scan the QR code to test the app!"
 echo ""
 echo "Happy coding! 🚀"
+
+

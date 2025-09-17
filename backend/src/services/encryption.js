@@ -1,29 +1,29 @@
-import crypto from 'crypto';
-import CryptoJS from 'crypto-js';
+const crypto = require('crypto');
+const CryptoJS = require('crypto-js');
 
-export class EncryptionService {
-  private static readonly ALGORITHM = 'aes-256-gcm';
-  private static readonly KEY_LENGTH = 32;
-  private static readonly IV_LENGTH = 16;
-  private static readonly TAG_LENGTH = 16;
+class EncryptionService {
+  static ALGORITHM = 'aes-256-gcm';
+  static KEY_LENGTH = 32;
+  static IV_LENGTH = 16;
+  static TAG_LENGTH = 16;
 
   // Generate a random encryption key
-  static generateKey(): string {
+  static generateKey() {
     return crypto.randomBytes(this.KEY_LENGTH).toString('hex');
   }
 
   // Generate a random salt
-  static generateSalt(): string {
+  static generateSalt() {
     return crypto.randomBytes(16).toString('hex');
   }
 
   // Hash email for storage
-  static hashEmail(email: string): string {
+  static hashEmail(email) {
     return crypto.createHash('sha256').update(email.toLowerCase()).digest('hex');
   }
 
   // Hash password with salt
-  static async hashPassword(password: string, salt: string): Promise<string> {
+  static async hashPassword(password, salt) {
     return new Promise((resolve, reject) => {
       crypto.pbkdf2(password, salt, 100000, 64, 'sha512', (err, derivedKey) => {
         if (err) reject(err);
@@ -33,13 +33,13 @@ export class EncryptionService {
   }
 
   // Verify password
-  static async verifyPassword(password: string, hash: string, salt: string): Promise<boolean> {
+  static async verifyPassword(password, hash, salt) {
     const hashedPassword = await this.hashPassword(password, salt);
     return hashedPassword === hash;
   }
 
   // Encrypt data using AES-256-GCM
-  static encrypt(data: any, key: string): string {
+  static encrypt(data, key) {
     const iv = crypto.randomBytes(this.IV_LENGTH);
     const cipher = crypto.createCipher(this.ALGORITHM, key);
     cipher.setAAD(Buffer.from('smart-travel-diary', 'utf8'));
@@ -55,7 +55,7 @@ export class EncryptionService {
   }
 
   // Decrypt data using AES-256-GCM
-  static decrypt(encryptedData: string, key: string): any {
+  static decrypt(encryptedData, key) {
     const parts = encryptedData.split(':');
     if (parts.length !== 3) {
       throw new Error('Invalid encrypted data format');
@@ -76,12 +76,12 @@ export class EncryptionService {
   }
 
   // Generate HMAC signature
-  static generateSignature(data: string, key: string): string {
+  static generateSignature(data, key) {
     return crypto.createHmac('sha256', key).update(data).digest('hex');
   }
 
   // Verify HMAC signature
-  static verifySignature(data: string, signature: string, key: string): boolean {
+  static verifySignature(data, signature, key) {
     const expectedSignature = this.generateSignature(data, key);
     return crypto.timingSafeEqual(
       Buffer.from(signature, 'hex'),
@@ -90,7 +90,7 @@ export class EncryptionService {
   }
 
   // Encrypt trip data for storage
-  static encryptTripData(trip: any, userKey: string): string {
+  static encryptTripData(trip, userKey) {
     // Remove sensitive fields that shouldn't be encrypted
     const { user_id, created_at, updated_at, ...tripData } = trip;
     
@@ -98,12 +98,12 @@ export class EncryptionService {
   }
 
   // Decrypt trip data
-  static decryptTripData(encryptedData: string, userKey: string): any {
+  static decryptTripData(encryptedData, userKey) {
     return this.decrypt(encryptedData, userKey);
   }
 
   // Generate pseudonymous user ID
-  static generatePseudonymousUserId(email: string, salt: string): string {
+  static generatePseudonymousUserId(email, salt) {
     const hash = crypto.createHash('sha256')
       .update(email.toLowerCase() + salt)
       .digest('hex');
@@ -119,7 +119,7 @@ export class EncryptionService {
   }
 
   // Anonymize location data
-  static anonymizeLocation(lat: number, lon: number, gridSizeMeters: number = 100): { lat: number; lon: number } {
+  static anonymizeLocation(lat, lon, gridSizeMeters = 100) {
     // Convert to meters (approximate)
     const latMeters = lat * 111320; // 1 degree latitude ≈ 111,320 meters
     const lonMeters = lon * 111320 * Math.cos(lat * Math.PI / 180);
@@ -136,7 +136,7 @@ export class EncryptionService {
   }
 
   // Round timestamp to time bin
-  static roundToTimeBin(timestamp: string, binSizeMinutes: number = 5): string {
+  static roundToTimeBin(timestamp, binSizeMinutes = 5) {
     const date = new Date(timestamp);
     const binSizeMs = binSizeMinutes * 60 * 1000;
     const roundedTime = new Date(Math.floor(date.getTime() / binSizeMs) * binSizeMs);
@@ -144,13 +144,13 @@ export class EncryptionService {
   }
 
   // Generate zone ID from coordinates
-  static generateZoneId(lat: number, lon: number, gridSizeMeters: number = 100): string {
+  static generateZoneId(lat, lon, gridSizeMeters = 100) {
     const rounded = this.anonymizeLocation(lat, lon, gridSizeMeters);
     return `zone_${Math.round(rounded.lat * 1000000)}_${Math.round(rounded.lon * 1000000)}`;
   }
 
   // Add differential privacy noise
-  static addDifferentialPrivacyNoise(value: number, epsilon: number = 1.0): number {
+  static addDifferentialPrivacyNoise(value, epsilon = 1.0) {
     // Laplace mechanism for differential privacy
     const sensitivity = 1; // For trip counts
     const scale = sensitivity / epsilon;
@@ -159,12 +159,15 @@ export class EncryptionService {
   }
 
   // Secure random string generation
-  static generateSecureRandom(length: number = 32): string {
+  static generateSecureRandom(length = 32) {
     return crypto.randomBytes(length).toString('hex');
   }
 
   // Hash sensitive data for logging (one-way)
-  static hashForLogging(data: string): string {
+  static hashForLogging(data) {
     return crypto.createHash('sha256').update(data).digest('hex').substring(0, 8);
   }
 }
+
+module.exports = EncryptionService;
+

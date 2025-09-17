@@ -1,8 +1,8 @@
-import express from 'express';
-import { body, query, validationResult } from 'express-validator';
-import { rewardsService } from '../services/rewardsService';
-import { createError } from '../middleware/errorHandler';
-import { authenticateToken, AuthRequest } from '../middleware/auth';
+const express = require('express');
+const { body, query, validationResult } = require('express-validator');
+const rewardsService = require('../services/rewardsService');
+const { createError } = require('../middleware/errorHandler');
+const { authenticateToken } = require('../middleware/auth');
 
 const router = express.Router();
 
@@ -10,9 +10,9 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // Get user's current points
-router.get('/points', async (req: AuthRequest, res, next) => {
+router.get('/points', async (req, res, next) => {
   try {
-    const userId = req.user?.id;
+    const userId = req.user.user_id;
     if (!userId) {
       return next(createError('User not authenticated', 401, 'UNAUTHORIZED'));
     }
@@ -34,19 +34,19 @@ router.get('/points', async (req: AuthRequest, res, next) => {
 // Get user's reward history
 router.get('/history', [
   query('limit').optional().isInt({ min: 1, max: 100 }).withMessage('Limit must be between 1 and 100')
-], async (req: AuthRequest, res, next) => {
+], async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return next(createError('Validation failed', 400, 'VALIDATION_ERROR', errors.array()));
     }
 
-    const userId = req.user?.id;
+    const userId = req.user.user_id;
     if (!userId) {
       return next(createError('User not authenticated', 401, 'UNAUTHORIZED'));
     }
 
-    const limit = parseInt(req.query.limit as string) || 50;
+    const limit = parseInt(req.query.limit) || 50;
     const history = await rewardsService.getUserRewardHistory(userId, limit);
     
     res.json({
@@ -65,14 +65,14 @@ router.get('/history', [
 router.post('/redeem', [
   body('points').isInt({ min: 1 }).withMessage('Points must be a positive integer'),
   body('description').isString().isLength({ min: 1, max: 255 }).withMessage('Description is required')
-], async (req: AuthRequest, res, next) => {
+], async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return next(createError('Validation failed', 400, 'VALIDATION_ERROR', errors.array()));
     }
 
-    const userId = req.user?.id;
+    const userId = req.user.user_id;
     if (!userId) {
       return next(createError('User not authenticated', 401, 'UNAUTHORIZED'));
     }
@@ -89,7 +89,7 @@ router.post('/redeem', [
       }
     });
   } catch (error) {
-    if (error instanceof Error && error.message === 'Insufficient points for redemption') {
+    if (error.message === 'Insufficient points for redemption') {
       return next(createError('Insufficient points for redemption', 400, 'INSUFFICIENT_POINTS'));
     }
     next(error);
@@ -99,14 +99,14 @@ router.post('/redeem', [
 // Get leaderboard (anonymized)
 router.get('/leaderboard', [
   query('limit').optional().isInt({ min: 1, max: 50 }).withMessage('Limit must be between 1 and 50')
-], async (req: AuthRequest, res, next) => {
+], async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return next(createError('Validation failed', 400, 'VALIDATION_ERROR', errors.array()));
     }
 
-    const limit = parseInt(req.query.limit as string) || 10;
+    const limit = parseInt(req.query.limit) || 10;
     const leaderboard = await rewardsService.getLeaderboard(limit);
     
     res.json({
@@ -125,14 +125,14 @@ router.get('/leaderboard', [
 router.post('/verify-trip', [
   body('trip_id').isUUID().withMessage('Valid trip ID is required'),
   body('is_verified').isBoolean().withMessage('Verification status must be boolean')
-], async (req: AuthRequest, res, next) => {
+], async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
       return next(createError('Validation failed', 400, 'VALIDATION_ERROR', errors.array()));
     }
 
-    const userId = req.user?.id;
+    const userId = req.user.user_id;
     if (!userId) {
       return next(createError('User not authenticated', 401, 'UNAUTHORIZED'));
     }
@@ -146,7 +146,7 @@ router.post('/verify-trip', [
       message: is_verified ? 'Trip verified successfully' : 'Trip verification removed'
     });
   } catch (error) {
-    if (error instanceof Error && error.message === 'Trip not found') {
+    if (error.message === 'Trip not found') {
       return next(createError('Trip not found', 404, 'TRIP_NOT_FOUND'));
     }
     next(error);
@@ -157,7 +157,7 @@ router.post('/verify-trip', [
 router.get('/admin/fraud-stats', [
   query('start_date').optional().isISO8601().withMessage('Invalid start date'),
   query('end_date').optional().isISO8601().withMessage('Invalid end date')
-], async (req: AuthRequest, res, next) => {
+], async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -165,20 +165,20 @@ router.get('/admin/fraud-stats', [
     }
 
     // Check if user is admin (this would be implemented in auth middleware)
-    if (!req.user?.isAdmin) {
+    if (!req.user.isAdmin) {
       return next(createError('Admin access required', 403, 'FORBIDDEN'));
     }
 
     const { start_date, end_date } = req.query;
     
-    let startDate: Date | undefined;
-    let endDate: Date | undefined;
+    let startDate;
+    let endDate;
     
     if (start_date) {
-      startDate = new Date(start_date as string);
+      startDate = new Date(start_date);
     }
     if (end_date) {
-      endDate = new Date(end_date as string);
+      endDate = new Date(end_date);
     }
 
     const fraudStats = await rewardsService.getFraudStatistics(startDate, endDate);
@@ -198,7 +198,7 @@ router.get('/admin/transactions', [
   query('end_date').optional().isISO8601().withMessage('Invalid end date'),
   query('user_id').optional().isUUID().withMessage('Invalid user ID'),
   query('limit').optional().isInt({ min: 1, max: 1000 }).withMessage('Limit must be between 1 and 1000')
-], async (req: AuthRequest, res, next) => {
+], async (req, res, next) => {
   try {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
@@ -206,7 +206,7 @@ router.get('/admin/transactions', [
     }
 
     // Check if user is admin
-    if (!req.user?.isAdmin) {
+    if (!req.user.isAdmin) {
       return next(createError('Admin access required', 403, 'FORBIDDEN'));
     }
 
@@ -227,4 +227,5 @@ router.get('/admin/transactions', [
   }
 });
 
-export default router;
+module.exports = router;
+

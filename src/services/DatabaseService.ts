@@ -438,10 +438,13 @@ export class DatabaseService {
       ORDER BY created_at ASC
     `);
     
-    return results.map(row => ({
-      ...row,
-      data: JSON.parse((row as any).data)
-    }));
+    return results.map(row => {
+      const parsedRow = row as any;
+      return {
+        ...parsedRow,
+        data: JSON.parse(parsedRow.data)
+      };
+    });
   }
   
   async removeFromSyncQueue(tableName: string, recordId: string): Promise<void> {
@@ -586,3 +589,5 @@ export class DatabaseService {
 
 // Singleton instance
 export const databaseService = new DatabaseService();
+
+

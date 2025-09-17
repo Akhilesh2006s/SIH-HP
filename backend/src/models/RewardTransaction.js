@@ -1,18 +1,6 @@
-import mongoose, { Document, Schema } from 'mongoose';
+const mongoose = require('mongoose');
 
-export interface IRewardTransaction extends Document {
-  _id: string;
-  user_id: string;
-  points_change: number;
-  transaction_type: 'trip_completed' | 'trip_verified' | 'fraud_penalty' | 'bonus' | 'redemption';
-  description: string;
-  trip_id?: string;
-  timestamp: Date;
-  created_at: Date;
-  updated_at: Date;
-}
-
-const RewardTransactionSchema = new Schema<IRewardTransaction>({
+const RewardTransactionSchema = new mongoose.Schema({
   user_id: {
     type: String,
     required: true,
@@ -48,4 +36,5 @@ const RewardTransactionSchema = new Schema<IRewardTransaction>({
 RewardTransactionSchema.index({ user_id: 1, timestamp: -1 });
 RewardTransactionSchema.index({ transaction_type: 1 });
 
-export const RewardTransaction = mongoose.model<IRewardTransaction>('RewardTransaction', RewardTransactionSchema);
+module.exports = mongoose.model('RewardTransaction', RewardTransactionSchema);
+
